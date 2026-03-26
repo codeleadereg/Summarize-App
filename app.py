@@ -1,17 +1,27 @@
 import streamlit as st
 import requests
+import time
 
 # إعدادات الصفحة
 st.set_page_config(page_title="AI Summarizer", page_icon="📝")
 
-# ده الـ API بتاع Hugging Face (بيشتغل من سيرفراتهم مباشرة)
 API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-# ملاحظة: سيبنا الـ Headers فاضية حالياً للنسخة العامة، لو طلب Token هقولك تجيبيه ازاي
 headers = {}
 
 def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+    # محاولة الاتصال بالموديل 3 مرات لو لسه بيحمل
+    for i in range(3):
+        response = requests.post(API_URL, headers=headers, json=payload)
+        output = response.json()
+        
+        # لو الموديل لسه بيحمل، استنى 10 ثواني وجرب تاني
+        if isinstance(output, dict) and "estimated_time" in output:
+            wait_time = output.get("estimated_time", 10)
+            st.info(f"الذكاء الاصطناعي بيجهز نفسه.. ثواني وهتظهر النتيجة (فاضل {int(wait_time)} ثانية)")
+            time.sleep(10)
+            continue
+        return output
+    return output
 
 st.title("📝 Quick AI Summarizer")
 st.write("Link-ready version (Fast & Light)")
@@ -25,9 +35,8 @@ if st.button("Summarize"):
         with st.spinner("AI is processing..."):
             output = query({"inputs": text})
             
-            # التأكد من وصول النتيجة
             if isinstance(output, list) and len(output) > 0:
                 st.subheader("Summary:")
                 st.success(output[0]['summary_text'])
             else:
-                st.error("The model is loading, please try again in 30 seconds.")
+                st.error("السيرفر مشغول حالياً، جربي تضغطي على الزرار مرة تانية كمان لحظات.")
