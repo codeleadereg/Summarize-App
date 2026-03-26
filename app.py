@@ -6,8 +6,8 @@ from transformers import pipeline
 def load_model():
     return pipeline(
         "summarization",
-        model="sshleifer/distilbart-cnn-12-6"
-        # model="facebook/bart-large-cnn"
+        model="sshleifer/distilbart-cnn-12-6",
+        framework="pt"  # السطر ده أساسي هنا
     )
 
 summarizer = load_model()
