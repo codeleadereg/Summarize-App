@@ -1,42 +1,46 @@
 import streamlit as st
-import requests
-import time
+from transformers import pipeline
+import torch
 
 # إعدادات الصفحة
-st.set_page_config(page_title="AI Summarizer", page_icon="📝")
+st.set_page_config(page_title="AI Summarizer Pro", page_icon="📝")
 
-API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-headers = {}
+# تحميل الموديل الأصلي (سيأخذ وقت في أول مرة فقط عند الـ Deploy)
+@st.cache_resource
+def load_summarizer():
+    # استخدام موديل distilbart لأنه أخف وأسرع في الـ Deploy المجاني
+    model_name = "sshleifer/distilbart-cnn-12-6"
+    return pipeline(
+        "summarization", 
+        model=model_name, 
+        framework="pt", 
+        device=-1 # أجبار التشغيل على CPU
+    )
 
-def query(payload):
-    # محاولة الاتصال بالموديل 3 مرات لو لسه بيحمل
-    for i in range(3):
-        response = requests.post(API_URL, headers=headers, json=payload)
-        output = response.json()
-        
-        # لو الموديل لسه بيحمل، استنى 10 ثواني وجرب تاني
-        if isinstance(output, dict) and "estimated_time" in output:
-            wait_time = output.get("estimated_time", 10)
-            st.info(f"الذكاء الاصطناعي بيجهز نفسه.. ثواني وهتظهر النتيجة (فاضل {int(wait_time)} ثانية)")
-            time.sleep(10)
-            continue
-        return output
-    return output
+st.title("📝 AI Text Summarizer")
+st.write("Original Version - Local Model Hosting")
 
-st.title("📝 Quick AI Summarizer")
-st.write("Link-ready version (Fast & Light)")
+# التأكد من تحميل الموديل
+with st.spinner("Loading AI Model into memory... Please wait."):
+    summarizer = load_summarizer()
 
-text = st.text_area("Input Text", height=200, placeholder="Enter your text here...")
+text = st.text_area("Input Text", height=250, placeholder="Paste your text here...")
 
-if st.button("Summarize"):
+if st.button("Summarize Now"):
     if not text.strip():
-        st.warning("Please enter text")
+        st.warning("Please enter some text.")
+    elif len(text.split()) < 10:
+        st.error("Text is too short. Please enter at least 10 words.")
     else:
-        with st.spinner("AI is processing..."):
-            output = query({"inputs": text})
-            
-            if isinstance(output, list) and len(output) > 0:
-                st.subheader("Summary:")
-                st.success(output[0]['summary_text'])
-            else:
-                st.error("السيرفر مشغول حالياً، جربي تضغطي على الزرار مرة تانية كمان لحظات.")
+        with st.spinner("Summarizing..."):
+            try:
+                summary = summarizer(
+                    text, 
+                    max_length=100, 
+                    min_length=30, 
+                    do_sample=False
+                )
+                st.subheader("Summary Result:")
+                st.success(summary[0]['summary_text'])
+            except Exception as e:
+                st.error(f"Error: {e}")
