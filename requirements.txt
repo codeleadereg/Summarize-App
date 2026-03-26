@@ -1,5 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-streamlit==1.31.0
-torch==2.2.0+cpu
-transformers==4.38.0
-sentencepiece==0.1.99
+streamlit
+transformers
+torch==2.1.2 --index-url https://download.pytorch.org/whl/cpu
+sentencepiece
