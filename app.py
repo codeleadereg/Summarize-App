@@ -1,77 +1,33 @@
 import streamlit as st
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
+import requests
 
 # إعدادات الصفحة
-st.set_page_config(page_title="AI Text Summarizer", page_icon="📝")
+st.set_page_config(page_title="AI Summarizer", page_icon="📝")
 
-# تحميل الموديل والـ Tokenizer بشكل يدوي لضمان التوافق
-@st.cache_resource
-def load_summarizer():
-    model_name = "sshleifer/distilbart-cnn-12-6"
-    
-    # تحميل الأدوات يدوياً
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    
-    # إنشاء الـ pipeline مع تحديد الـ framework والـ device
-    # device=-1 معناه استخدام الـ CPU وهو المتاح في النسخ المجانية
-    summarizer = pipeline(
-        "summarization",
-        model=model,
-        tokenizer=tokenizer,
-        framework="pt",
-        device=-1
-    )
-    return summarizer
+# ده الـ API بتاع Hugging Face (بيشتغل من سيرفراتهم مباشرة)
+API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+# ملاحظة: سيبنا الـ Headers فاضية حالياً للنسخة العامة، لو طلب Token هقولك تجيبيه ازاي
+headers = {}
 
-# استدعاء الموديل
-try:
-    summarizer = load_summarizer()
-except Exception as e:
-    st.error(f"Error loading model: {e}")
-    st.stop()
+def query(payload):
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
 
-# واجهة المستخدم (UI)
-st.title("📝 AI Text Summarizer")
-st.markdown("### أدوات تلخيص النصوص بالذكاء الاصطناعي")
-st.write("أدخل النص الإنجليزي بالأسفل للحصول على ملخص سريع وذكي.")
+st.title("📝 Quick AI Summarizer")
+st.write("Link-ready version (Fast & Light)")
 
-# مكان إدخال النص
-input_text = st.text_area("Input Text (English)", height=250, placeholder="Paste your long text here...")
+text = st.text_area("Input Text", height=200, placeholder="Enter your text here...")
 
-# أزرار التحكم
-col1, col2 = st.columns([1, 5])
-with col1:
-    submit_button = st.button("Summarize")
-
-if submit_button:
-    if not input_text.strip():
-        st.warning("Please enter some text first!")
-    elif len(input_text.split()) < 30:
-        st.info("The text is too short to summarize. Please enter at least 30 words.")
+if st.button("Summarize"):
+    if not text.strip():
+        st.warning("Please enter text")
     else:
-        with st.spinner("Wait a moment... AI is reading and summarizing..."):
-            try:
-                # عملية التلخيص
-                result = summarizer(
-                    input_text,
-                    max_length=130,
-                    min_length=30,
-                    do_sample=False
-                )
-                
-                # عرض النتيجة
-                st.markdown("---")
-                st.subheader("✅ Summary Result:")
-                st.success(result[0]['summary_text'])
-                
-                # إضافة زر لنسخ النص (اختياري)
-                st.code(result[0]['summary_text'], language="text")
-                
-            except Exception as e:
-                st.error(f"An error occurred during summarization: {e}")
-
-# تذييل الصفحة
-st.markdown("---")
-st.caption("Powered by Hugging Face Transformers & Streamlit")
+        with st.spinner("AI is processing..."):
+            output = query({"inputs": text})
+            
+            # التأكد من وصول النتيجة
+            if isinstance(output, list) and len(output) > 0:
+                st.subheader("Summary:")
+                st.success(output[0]['summary_text'])
+            else:
+                st.error("The model is loading, please try again in 30 seconds.")
